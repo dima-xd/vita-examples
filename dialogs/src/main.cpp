@@ -3,7 +3,11 @@
 #include <codecvt>
 #include <stdio.h>
 #include <string>
+#include <locale>
 #include <psp2/message_dialog.h>
+#include <psp2/ime_dialog.h>
+
+static uint16_t dialog_res_text[SCE_IME_DIALOG_MAX_TEXT_LENGTH + 1];
 
 void wait_dialog() {
     while (1) {
@@ -80,6 +84,31 @@ int init_progressbar_dialog(const char *fmt, ...) {
     return sceMsgDialogInit(&param);
 }
 
+void init_interactive_ime_dialog(const char *msg, const char *start_text, bool multiline) {
+    SceImeDialogParam params;
+
+    sceImeDialogParamInit(&params);
+    params.type = SCE_IME_TYPE_BASIC_LATIN;
+
+    std::string utf8_str = msg;
+    std::u16string utf16_str = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(utf8_str.data());
+    std::string utf8_arg = start_text;
+    std::u16string utf16_arg = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(utf8_arg.data());
+
+    params.title = (const SceWChar16*)utf16_str.c_str();
+    sceClibMemset(dialog_res_text, 0, sizeof(dialog_res_text));
+    sceClibMemcpy(dialog_res_text, utf16_arg.c_str(), utf16_arg.length() * 2);
+    params.initialText = dialog_res_text;
+    params.inputTextBuffer = dialog_res_text;
+
+    params.maxTextLength = SCE_IME_DIALOG_MAX_TEXT_LENGTH;
+
+    if (multiline)
+        params.option = SCE_IME_OPTION_MULTILINE;
+
+    sceImeDialogInit(&params);
+}
+
 int main(int argc, char *argv[]) {
 	init_msg_dialog("Message Dialog");
     wait_dialog();
@@ -87,7 +116,11 @@ int main(int argc, char *argv[]) {
     init_interactive_msg_dialog("Interactive Message Dialog");
     wait_dialog();
 
-    init_progressbar_dialog("Progress Message Dialog");
+    /*init_progressbar_dialog("Progress Message Dialog");
+    wait_dialog();*/
+
+    char value[128] = {0};
+    init_interactive_ime_dialog("IME Dialog", value, true);
     wait_dialog();
     return 0;
 }

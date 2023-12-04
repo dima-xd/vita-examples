@@ -59,6 +59,7 @@ target_link_libraries(${PROJECT_NAME}
                     # the most common stubs are automatically included.
   SceDisplay_stub   # This used by debugScreenPrintf()
   SceCommonDialog_stub
+  SceIme_stub
   stdc++
   pthread
 )
