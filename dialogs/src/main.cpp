@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <codecvt>
 #include <stdio.h>
 #include <string>
@@ -8,6 +9,14 @@
 #include <psp2/ime_dialog.h>
 
 static uint16_t dialog_res_text[SCE_IME_DIALOG_MAX_TEXT_LENGTH + 1];
+static bool is_ime_active = false;
+static char text[128] = {0};
+
+void getDialogTextResult(char *text) {
+    std::u16string utf16_str = (char16_t*)dialog_res_text;
+    std::string utf8_str = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.to_bytes(utf16_str.data());
+    strcpy(text, utf8_str.c_str());
+}
 
 void wait_dialog() {
     while (1) {
@@ -15,6 +24,23 @@ void wait_dialog() {
         if (status == SCE_COMMON_DIALOG_STATUS_FINISHED) {
             sceMsgDialogTerm();
             break;
+        }
+    }
+}
+
+void wait_ime_dialog() {
+    if (is_ime_active) {
+        while (1) {
+            SceImeDialogResult res;
+            sceClibMemset(&res, 0, sizeof(SceImeDialogResult));
+            sceImeDialogGetResult(&res);
+
+            if (res.button == SCE_IME_DIALOG_BUTTON_ENTER) {
+                getDialogTextResult(text);
+                sceImeDialogTerm();
+                is_ime_active = false;
+                break;
+            }
         }
     }
 }
@@ -101,12 +127,13 @@ void init_interactive_ime_dialog(const char *msg, const char *start_text, bool m
     params.initialText = dialog_res_text;
     params.inputTextBuffer = dialog_res_text;
 
-    params.maxTextLength = SCE_IME_DIALOG_MAX_TEXT_LENGTH;
+    params.maxTextLength = 20;
 
     if (multiline)
         params.option = SCE_IME_OPTION_MULTILINE;
 
     sceImeDialogInit(&params);
+    is_ime_active = true;
 }
 
 int main(int argc, char *argv[]) {
@@ -119,8 +146,12 @@ int main(int argc, char *argv[]) {
     /*init_progressbar_dialog("Progress Message Dialog");
     wait_dialog();*/
 
-    char value[128] = {0};
-    init_interactive_ime_dialog("IME Dialog", value, true);
-    wait_dialog();
+    init_interactive_ime_dialog("IME Dialog", text, true);
+    wait_ime_dialog();
+    printf(text);
+
+    init_interactive_ime_dialog("IME Dialog", text, false);
+    wait_ime_dialog();
+    printf(text);
     return 0;
 }
